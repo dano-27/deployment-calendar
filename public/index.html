@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Deployment Calendar — A premium digital whiteboard for tracking large deployments, venues, and hardware rollouts.">
+  <title>Deployment Calendar — Whiteboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+  <!-- ==================== HEADER ==================== -->
+  <header id="app-header" class="app-header">
+    <div class="header-left">
+      <div class="app-brand" id="app-brand">
+        <svg class="brand-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+          <rect x="7" y="14" width="3" height="3" rx="0.5" fill="currentColor" stroke="none"/>
+          <rect x="14" y="14" width="3" height="3" rx="0.5" fill="currentColor" stroke="none"/>
+        </svg>
+        <h1 class="app-title">Deployment Calendar</h1>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <nav class="month-nav" id="month-nav">
+        <button class="nav-btn" id="prev-month-btn" aria-label="Previous month">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+        <span class="month-year-display" id="month-year-display">July 2026</span>
+        <button class="nav-btn" id="next-month-btn" aria-label="Next month">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+        <button class="btn-today" id="today-btn">Today</button>
+      </nav>
+    </div>
+
+    <div class="header-right">
+      <div class="category-legend" id="category-legend">
+        <!-- Populated by JS with colored dots + category names -->
+      </div>
+      <button class="btn-manage-categories" id="manage-categories-btn" aria-label="Manage Categories">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== CALENDAR ==================== -->
+  <main class="calendar-container" id="calendar-container">
+    <div class="day-headers" id="day-headers">
+      <div class="day-header-cell">Monday</div>
+      <div class="day-header-cell">Tuesday</div>
+      <div class="day-header-cell">Wednesday</div>
+      <div class="day-header-cell">Thursday</div>
+      <div class="day-header-cell">Friday</div>
+      <div class="day-header-cell">Saturday</div>
+      <div class="day-header-cell">Sunday</div>
+    </div>
+    <div class="calendar-grid" id="calendar-grid">
+      <!-- Populated by JS with day cells -->
+    </div>
+  </main>
+
+  <!-- ==================== EVENT MODAL ==================== -->
+  <div class="modal-overlay" id="event-modal">
+    <div class="modal-card" id="event-modal-card">
+      <h2 class="modal-title" id="event-modal-title">Add Event</h2>
+      <p class="modal-date" id="event-modal-date">Wednesday, July 15, 2026</p>
+
+      <div class="form-group">
+        <label for="event-title">Title</label>
+        <input type="text" id="event-title" placeholder="Event name..." autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label for="event-details">Details</label>
+        <textarea id="event-details" placeholder="e.g. 3x Register, 5x HH, 4x KDS"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="event-category">Category</label>
+        <select id="event-category">
+          <!-- Populated by JS -->
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="event-status">Hardware Status</label>
+        <select id="event-status">
+          <option value="pending">Pending</option>
+          <option value="waiting">Waiting for Hardware</option>
+          <option value="received">Hardware Received</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="status-date-group" style="display: none;">
+        <label for="event-status-date">Date Received</label>
+        <input type="date" id="event-status-date">
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label" for="event-backup-stock">
+          <input type="checkbox" id="event-backup-stock">
+          <span class="checkbox-text">Backup Stock</span>
+        </label>
+      </div>
+
+      <div class="btn-row" id="event-modal-actions">
+        <button class="btn btn-danger" id="delete-event-btn">Delete</button>
+        <div class="btn-row-spacer"></div>
+        <button class="btn btn-ghost" id="cancel-event-btn">Cancel</button>
+        <button class="btn btn-primary" id="save-event-btn">Save Event</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== CATEGORY MODAL ==================== -->
+  <div class="modal-overlay" id="category-modal">
+    <div class="modal-card" id="category-modal-card">
+      <div class="modal-header-row">
+        <h2 class="modal-title" id="category-modal-title">Manage Categories</h2>
+        <button class="btn btn-ghost modal-close-btn" id="close-category-modal-btn" aria-label="Close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="category-list" id="category-list">
+        <!-- Populated by JS -->
+      </div>
+
+      <div class="category-add-form" id="category-add-form">
+        <input type="text" id="new-category-name" placeholder="Category name..." autocomplete="off">
+        <input type="color" id="new-category-color" value="#4A90D9" title="Pick a color">
+        <button class="btn btn-primary btn-sm" id="add-category-btn">Add</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
