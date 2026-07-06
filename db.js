@@ -79,6 +79,14 @@ if (!columns.includes('source_id')) {
   console.log('Added source_id column to events');
 }
 
+// Rename "Go Fleet" → "GSO Fleet" if it still exists under the old name
+const goFleet = db.prepare("SELECT id FROM categories WHERE id = 'go-fleet'").get();
+if (goFleet) {
+  db.exec(`UPDATE categories SET id = 'gso-fleet', name = 'GSO Fleet' WHERE id = 'go-fleet'`);
+  db.exec(`UPDATE events SET category_id = 'gso-fleet' WHERE category_id = 'go-fleet'`);
+  console.log('Renamed Go Fleet → GSO Fleet');
+}
+
 // ============================================================================
 // Seed default categories if the table is empty
 // ============================================================================
@@ -92,7 +100,7 @@ if (categoryCount.count === 0) {
 
   const defaultCategories = [
     { id: 'live-nation', name: 'Live Nation', color: '#4A90D9' },
-    { id: 'go-fleet',    name: 'Go Fleet',    color: '#27AE60' },
+    { id: 'gso-fleet',  name: 'GSO Fleet',  color: '#27AE60' },
     { id: 'general',     name: 'General',     color: '#8E44AD' },
   ];
 
