@@ -117,6 +117,14 @@
   let $addCategoryBtn;
   let $closeCategoryModalBtn;
 
+  // Filters
+  let $filterCategory;
+  let $filterStatus;
+  let $filterDateFrom;
+  let $filterDateTo;
+  let $clearFiltersBtn;
+  let $filterCount;
+
   // ==================== UTILITY ====================
 
   /**
@@ -633,6 +641,7 @@
       categories = await API.getCategories();
       renderCategoryList();
       renderLegend();
+      populateFilterCategoryDropdown();
       $newCategoryName.value = '';
       $newCategoryColor.value = '#4A90D9';
     } catch (err) {
@@ -649,6 +658,7 @@
       categories = await API.getCategories();
       renderCategoryList();
       renderLegend();
+      populateFilterCategoryDropdown();
       // Re-render calendar since events may have lost their category color
       await loadAndRender();
     } catch (err) {
@@ -702,6 +712,101 @@
     });
   }
 
+  // ==================== FILTERS ====================
+
+  /**
+   * Populate the category filter dropdown with current categories.
+   */
+  function populateFilterCategoryDropdown() {
+    // Preserve current selection
+    var current = $filterCategory.value;
+    // Remove all options after the first ("All Categories")
+    while ($filterCategory.options.length > 1) {
+      $filterCategory.remove(1);
+    }
+    categories.forEach(function (cat) {
+      var opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = cat.name;
+      $filterCategory.appendChild(opt);
+    });
+    // Restore selection if it still exists
+    $filterCategory.value = current;
+    if ($filterCategory.selectedIndex === -1) {
+      $filterCategory.value = 'all';
+    }
+  }
+
+  /**
+   * Apply current filters — show/hide event cards and update the match count.
+   * Called after every render and whenever a filter changes.
+   */
+  function applyFilters() {
+    var catFilter = $filterCategory.value;
+    var statusFilter = $filterStatus.value;
+    var dateFrom = $filterDateFrom.value; // '' or 'YYYY-MM-DD'
+    var dateTo = $filterDateTo.value;
+
+    var allCards = document.querySelectorAll('.event-card');
+    var totalCount = allCards.length;
+    var visibleCount = 0;
+
+    allCards.forEach(function (card) {
+      var eventId = card.dataset.eventId;
+      var ev = events.find(function (e) { return e.id === eventId; });
+      if (!ev) { card.classList.add('filtered-out'); return; }
+
+      var show = true;
+
+      // Category filter
+      if (catFilter !== 'all' && ev.categoryId !== catFilter) {
+        show = false;
+      }
+
+      // Status filter
+      if (statusFilter !== 'all') {
+        var evStatus = ev.status || 'pending';
+        if (evStatus !== statusFilter) {
+          show = false;
+        }
+      }
+
+      // Date range filter
+      if (dateFrom && ev.date < dateFrom) {
+        show = false;
+      }
+      if (dateTo && ev.date > dateTo) {
+        show = false;
+      }
+
+      if (show) {
+        card.classList.remove('filtered-out');
+        visibleCount++;
+      } else {
+        card.classList.add('filtered-out');
+      }
+    });
+
+    // Update count label
+    var hasActiveFilter = (catFilter !== 'all' || statusFilter !== 'all' || dateFrom || dateTo);
+    if (hasActiveFilter) {
+      $filterCount.textContent = visibleCount + ' of ' + totalCount + ' events';
+    } else {
+      $filterCount.textContent = '';
+    }
+  }
+
+  /**
+   * Clear all filters and re-show everything.
+   */
+  function clearFilters() {
+    $filterCategory.value = 'all';
+    $filterStatus.value = 'all';
+    $filterDateFrom.value = '';
+    $filterDateTo.value = '';
+    applyFilters();
+  }
+
   // ==================== DATA LOADING ====================
 
   /**
@@ -719,6 +824,7 @@
     }
 
     renderCalendar();
+    applyFilters();
   }
 
   // ==================== INITIALIZATION ====================
@@ -756,6 +862,14 @@
     $addCategoryBtn = document.getElementById('add-category-btn');
     $closeCategoryModalBtn = document.getElementById('close-category-modal-btn');
 
+    // Filters
+    $filterCategory = document.getElementById('filter-category');
+    $filterStatus = document.getElementById('filter-status');
+    $filterDateFrom = document.getElementById('filter-date-from');
+    $filterDateTo = document.getElementById('filter-date-to');
+    $clearFiltersBtn = document.getElementById('clear-filters-btn');
+    $filterCount = document.getElementById('filter-count');
+
     // Load categories
     try {
       categories = await API.getCategories();
@@ -764,6 +878,7 @@
       categories = [];
     }
     renderLegend();
+    populateFilterCategoryDropdown();
 
     // ==================== EVENT LISTENERS ====================
 
@@ -784,6 +899,13 @@
     $manageCategoriesBtn.addEventListener('click', openCategoryModal);
     $closeCategoryModalBtn.addEventListener('click', closeCategoryModal);
     $addCategoryBtn.addEventListener('click', addCategory);
+
+    // Filter controls
+    $filterCategory.addEventListener('change', applyFilters);
+    $filterStatus.addEventListener('change', applyFilters);
+    $filterDateFrom.addEventListener('change', applyFilters);
+    $filterDateTo.addEventListener('change', applyFilters);
+    $clearFiltersBtn.addEventListener('click', clearFilters);
 
     // Enter key in new category name input → add category
     $newCategoryName.addEventListener('keydown', function (e) {

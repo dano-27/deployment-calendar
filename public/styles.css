@@ -222,6 +222,85 @@ body {
   border-color: var(--border-frame);
 }
 
+/* ==================== FILTER BAR ==================== */
+.filter-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 10px 28px;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-light);
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.filter-group label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 0;
+}
+
+.filter-group select,
+.filter-group input[type="date"] {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  background: #fff;
+  border: 1px solid var(--border-grid);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  outline: none;
+  margin-bottom: 0;
+  min-width: 150px;
+  transition: border-color 0.2s ease;
+}
+
+.filter-group select:focus,
+.filter-group input[type="date"]:focus {
+  border-color: var(--accent-blue);
+}
+
+.btn-clear-filters {
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  background: transparent;
+  border: 1px solid var(--border-grid);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  align-self: flex-end;
+}
+
+.btn-clear-filters:hover {
+  background: var(--accent-red);
+  color: #fff;
+  border-color: var(--accent-red);
+}
+
+.filter-count {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  align-self: flex-end;
+  padding-bottom: 2px;
+  font-weight: 500;
+}
+
+/* Hidden event cards that don't match filters */
+.event-card.filtered-out {
+  display: none;
+}
+
 /* ==================== CALENDAR CONTAINER ==================== */
 .calendar-container {
   flex: 1;

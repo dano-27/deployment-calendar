@@ -59,6 +59,40 @@
     </div>
   </header>
 
+  <!-- ==================== FILTER BAR ==================== -->
+  <div class="filter-bar" id="filter-bar">
+    <div class="filter-group">
+      <label for="filter-category">Category</label>
+      <select id="filter-category">
+        <option value="all">All Categories</option>
+        <!-- Populated by JS -->
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="filter-status">Status</label>
+      <select id="filter-status">
+        <option value="all">All Statuses</option>
+        <option value="pending">Pending</option>
+        <option value="waiting">Waiting for Hardware</option>
+        <option value="received">Hardware Received</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="filter-date-from">From</label>
+      <input type="date" id="filter-date-from">
+    </div>
+
+    <div class="filter-group">
+      <label for="filter-date-to">To</label>
+      <input type="date" id="filter-date-to">
+    </div>
+
+    <button class="btn-clear-filters" id="clear-filters-btn">Clear Filters</button>
+    <span class="filter-count" id="filter-count"></span>
+  </div>
+
   <!-- ==================== CALENDAR ==================== -->
   <main class="calendar-container" id="calendar-container">
     <div class="day-headers" id="day-headers">
