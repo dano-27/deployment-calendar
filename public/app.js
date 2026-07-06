@@ -127,6 +127,7 @@
   let $filterDateTo;
   let $clearFiltersBtn;
   let $filterCount;
+  let $filterBackupStock;
 
   // ==================== UTILITY ====================
 
@@ -993,8 +994,9 @@
   function applyFilters() {
     var catFilter = $filterCategory.value;
     var statusFilter = $filterStatus.value;
-    var dateFrom = $filterDateFrom.value; // '' or 'YYYY-MM-DD'
+    var dateFrom = $filterDateFrom.value;
     var dateTo = $filterDateTo.value;
+    var backupOnly = $filterBackupStock.checked;
 
     var allCards = document.querySelectorAll('.event-card');
     var totalCount = allCards.length;
@@ -1028,6 +1030,11 @@
         show = false;
       }
 
+      // Backup stock filter
+      if (backupOnly && !ev.isBackupStock) {
+        show = false;
+      }
+
       if (show) {
         card.classList.remove('filtered-out');
         visibleCount++;
@@ -1037,7 +1044,7 @@
     });
 
     // Update count label
-    var hasActiveFilter = (catFilter !== 'all' || statusFilter !== 'all' || dateFrom || dateTo);
+    var hasActiveFilter = (catFilter !== 'all' || statusFilter !== 'all' || dateFrom || dateTo || backupOnly);
     if (hasActiveFilter) {
       $filterCount.textContent = visibleCount + ' of ' + totalCount + ' events';
     } else {
@@ -1053,6 +1060,7 @@
     $filterStatus.value = 'all';
     $filterDateFrom.value = '';
     $filterDateTo.value = '';
+    $filterBackupStock.checked = false;
     applyFilters();
   }
 
@@ -1143,6 +1151,7 @@
     $filterDateTo = document.getElementById('filter-date-to');
     $clearFiltersBtn = document.getElementById('clear-filters-btn');
     $filterCount = document.getElementById('filter-count');
+    $filterBackupStock = document.getElementById('filter-backup-stock');
 
     // Load categories
     try {
@@ -1187,6 +1196,7 @@
     $filterDateFrom.addEventListener('change', applyFilters);
     $filterDateTo.addEventListener('change', applyFilters);
     $clearFiltersBtn.addEventListener('click', clearFilters);
+    $filterBackupStock.addEventListener('change', applyFilters);
 
     // Enter key in new category name input → add category
     $newCategoryName.addEventListener('keydown', function (e) {
