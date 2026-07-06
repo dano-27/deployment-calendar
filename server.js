@@ -13,6 +13,7 @@ require('./db');
 const eventsRouter = require('./routes/events');
 const categoriesRouter = require('./routes/categories');
 const itemsRouter = require('./routes/items');
+const slackImportRouter = require('./routes/slackImport');
 const { startSlackSync } = require('./services/slackSync');
 
 const app = express();
@@ -32,6 +33,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/events', eventsRouter);
 app.use('/api/categories', categoriesRouter);
 app.use('/api/items', itemsRouter);
+app.use('/api/slack', slackImportRouter);
 
 // ============================================================================
 // Catch-all: serve the frontend SPA for any non-API GET request
