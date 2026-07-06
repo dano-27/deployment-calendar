@@ -313,6 +313,9 @@
       // Render events for this date
       renderEventsInCell(eventsContainer, dateStr);
 
+      // Device count badge
+      renderDeviceCountBadge(cell, dateStr);
+
       // Hover "+" hint
       const addHint = document.createElement('div');
       addHint.classList.add('add-event-hint');
@@ -339,6 +342,27 @@
    * @param {HTMLElement} container
    * @param {string} date - YYYY-MM-DD
    */
+  /**
+   * Calculate total device count for a date and append a badge to the cell.
+   */
+  function renderDeviceCountBadge(cell, date) {
+    var dayEvents = events.filter(function (ev) { return ev.date === date; });
+    var totalDevices = 0;
+    dayEvents.forEach(function (ev) {
+      if (ev.items && ev.items.length > 0) {
+        ev.items.forEach(function (it) {
+          totalDevices += it.quantity;
+        });
+      }
+    });
+    if (totalDevices > 0) {
+      var badge = document.createElement('div');
+      badge.classList.add('device-count-badge');
+      badge.textContent = totalDevices + ' device' + (totalDevices === 1 ? '' : 's');
+      cell.appendChild(badge);
+    }
+  }
+
   function renderEventsInCell(container, date) {
     const dayEvents = events.filter(function (ev) {
       return ev.date === date;
@@ -465,6 +489,9 @@
       eventContainer.classList.add('event-container');
       cell.appendChild(eventContainer);
       renderEventsInCell(eventContainer, dateStr);
+
+      // Device count badge
+      renderDeviceCountBadge(cell, dateStr);
 
       // Add hint
       var hint = document.createElement('div');
