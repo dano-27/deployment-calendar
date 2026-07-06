@@ -89,6 +89,16 @@
       if (!res.ok) throw new Error('Failed to delete item');
       return res.json();
     },
+
+    async updateItem(id, data) {
+      const res = await fetch(`/api/items/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to update item');
+      return res.json();
+    },
   };
 
   // ==================== MONTH NAMES ====================
@@ -1139,6 +1149,17 @@
       nameEl.classList.add('category-item-name');
       nameEl.textContent = item.name;
 
+      var actionsEl = document.createElement('div');
+      actionsEl.style.display = 'flex';
+      actionsEl.style.gap = '4px';
+
+      var editBtn = document.createElement('button');
+      editBtn.classList.add('btn', 'btn-ghost', 'btn-sm');
+      editBtn.textContent = 'Edit';
+      editBtn.addEventListener('click', function () {
+        startEditingItem(row, item);
+      });
+
       var deleteBtn = document.createElement('button');
       deleteBtn.classList.add('btn', 'btn-ghost', 'btn-sm');
       deleteBtn.textContent = 'Delete';
@@ -1146,10 +1167,72 @@
         handleDeleteItem(item.id);
       });
 
+      actionsEl.appendChild(editBtn);
+      actionsEl.appendChild(deleteBtn);
       row.appendChild(nameEl);
-      row.appendChild(deleteBtn);
+      row.appendChild(actionsEl);
       $itemsList.appendChild(row);
     });
+  }
+
+  /**
+   * Replace item name with an inline input for editing.
+   */
+  function startEditingItem(row, item) {
+    row.innerHTML = '';
+
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.value = item.name;
+    input.classList.add('category-item-name');
+    input.style.flex = '1';
+    input.style.padding = '4px 8px';
+    input.style.fontSize = '0.9rem';
+    input.style.border = '1px solid var(--accent-blue)';
+    input.style.borderRadius = 'var(--radius-sm)';
+    input.style.outline = 'none';
+    input.style.background = '#fff';
+
+    var saveBtn = document.createElement('button');
+    saveBtn.classList.add('btn', 'btn-primary', 'btn-sm');
+    saveBtn.textContent = 'Save';
+
+    async function saveEdit() {
+      var newName = input.value.trim();
+      if (!newName || newName === item.name) {
+        renderItemsList();
+        return;
+      }
+      try {
+        await API.updateItem(item.id, { name: newName });
+        presetItems = await API.getItems();
+        renderItemsList();
+        populateItemPickerDropdown();
+        await loadAndRender();
+      } catch (err) {
+        console.error('Error renaming item:', err);
+        renderItemsList();
+      }
+    }
+
+    saveBtn.addEventListener('click', saveEdit);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); saveEdit(); }
+      if (e.key === 'Escape') { renderItemsList(); }
+    });
+    input.addEventListener('blur', function () {
+      // Small delay to allow save button click to fire first
+      setTimeout(function () {
+        if (document.activeElement !== saveBtn) {
+          renderItemsList();
+        }
+      }, 150);
+    });
+
+    row.appendChild(input);
+    row.appendChild(saveBtn);
+    input.focus();
+    input.select();
   }
 
   async function addItem() {

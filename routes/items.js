@@ -65,4 +65,29 @@ router.delete('/:id', (req, res) => {
   }
 });
 
+// PUT /api/items/:id — rename a preset item
+router.put('/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Item name is required' });
+    }
+
+    const item = db.prepare('SELECT * FROM items WHERE id = ?').get(id);
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+
+    db.prepare('UPDATE items SET name = ? WHERE id = ?').run(name.trim(), id);
+
+    const updated = db.prepare('SELECT * FROM items WHERE id = ?').get(id);
+    res.json(updated);
+  } catch (err) {
+    console.error('Error updating item:', err);
+    res.status(500).json({ error: 'Failed to update item' });
+  }
+});
+
 module.exports = router;
