@@ -73,6 +73,11 @@ if (!columns.includes('is_backup_stock')) {
   db.exec(`ALTER TABLE events ADD COLUMN is_backup_stock INTEGER DEFAULT 0`);
   console.log('Added is_backup_stock column to events');
 }
+if (!columns.includes('source_id')) {
+  db.exec(`ALTER TABLE events ADD COLUMN source_id TEXT DEFAULT NULL`);
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_events_source_id ON events(source_id) WHERE source_id IS NOT NULL`);
+  console.log('Added source_id column to events');
+}
 
 // ============================================================================
 // Seed default categories if the table is empty

@@ -280,12 +280,13 @@ router.delete('/:id', (req, res) => {
 
 // ============================================================================
 // POST /api/events/webhook — Slack webhook endpoint
-// Body: { title, date, details?, category? }
+// Body: { title, date, details?, category?, sourceId?, items?, status?, statusDate?, isBackupStock? }
 // The `category` field is a NAME — if it doesn't exist, auto-create it
+// If `sourceId` is provided and an event with that sourceId exists, update it
 // ============================================================================
 router.post('/webhook', (req, res) => {
   try {
-    const { title, date, details, category } = req.body;
+    const { title, date, details, category, sourceId, items } = req.body;
 
     if (!title || !date) {
       return res.status(400).json({ error: 'title and date are required' });
@@ -319,16 +320,58 @@ router.post('/webhook', (req, res) => {
       }
     }
 
-    const id = uuidv4();
     const now = new Date().toISOString();
 
-    db.prepare(`
-      INSERT INTO events (id, date, title, details, category_id, status, status_date, is_backup_stock, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, parsedDate, title, details || '', categoryId, req.body.status || 'pending', req.body.statusDate || null, req.body.isBackupStock ? 1 : 0, now, now);
+    // Check for existing event by sourceId (duplicate detection)
+    let existingEvent = null;
+    if (sourceId) {
+      existingEvent = db.prepare('SELECT id FROM events WHERE source_id = ?').get(sourceId);
+    }
 
-    const event = getEventWithCategory(id);
-    res.status(201).json(event);
+    let eventId;
+
+    if (existingEvent) {
+      // Update existing event
+      eventId = existingEvent.id;
+      db.prepare(`
+        UPDATE events SET date = ?, title = ?, details = ?, category_id = ?,
+          status = ?, status_date = ?, is_backup_stock = ?, updated_at = ?
+        WHERE id = ?
+      `).run(
+        parsedDate, title, details || '', categoryId,
+        req.body.status || 'pending', req.body.statusDate || null,
+        req.body.isBackupStock ? 1 : 0, now, eventId
+      );
+
+      // Update items if provided
+      if (items) {
+        saveEventItems(eventId, items);
+      }
+
+      console.log(`Webhook updated existing event ${eventId} (sourceId: ${sourceId})`);
+    } else {
+      // Create new event
+      eventId = uuidv4();
+
+      db.prepare(`
+        INSERT INTO events (id, date, title, details, category_id, status, status_date, is_backup_stock, source_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        eventId, parsedDate, title, details || '', categoryId,
+        req.body.status || 'pending', req.body.statusDate || null,
+        req.body.isBackupStock ? 1 : 0, sourceId || null, now, now
+      );
+
+      // Save items if provided
+      if (items) {
+        saveEventItems(eventId, items);
+      }
+
+      console.log(`Webhook created new event ${eventId}` + (sourceId ? ` (sourceId: ${sourceId})` : ''));
+    }
+
+    const event = getEventWithCategory(eventId);
+    res.status(existingEvent ? 200 : 201).json(event);
   } catch (err) {
     console.error('POST /api/events/webhook error:', err);
     res.status(500).json({ error: 'Failed to create event via webhook' });
