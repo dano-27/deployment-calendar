@@ -13,6 +13,7 @@ require('./db');
 const eventsRouter = require('./routes/events');
 const categoriesRouter = require('./routes/categories');
 const itemsRouter = require('./routes/items');
+const { startSlackSync } = require('./services/slackSync');
 
 const app = express();
 
@@ -46,4 +47,7 @@ const port = process.env.PORT || 3000;
 
 app.listen(port, () => {
   console.log(`Deployment Calendar running at http://localhost:${port}`);
+
+  // Start Slack sync if a bot token is configured
+  startSlackSync();
 });
