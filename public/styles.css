@@ -170,6 +170,164 @@ body {
   transform: scale(0.95);
 }
 
+/* View Toggle — segmented control */
+.view-toggle {
+  display: flex;
+  border: 1px solid var(--border-grid);
+  border-radius: 20px;
+  overflow: hidden;
+  margin-left: 8px;
+}
+
+.view-btn {
+  padding: 5px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  background: #fff;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  border-right: 1px solid var(--border-grid);
+}
+
+.view-btn:last-child {
+  border-right: none;
+}
+
+.view-btn:hover {
+  background: var(--bg-cell-hover);
+  color: var(--text-primary);
+}
+
+.view-btn.active {
+  background: var(--accent-blue);
+  color: #fff;
+}
+
+/* ==================== WEEK VIEW ==================== */
+.calendar-grid.view-week {
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: 1fr;
+}
+
+.calendar-grid.view-week .day-cell {
+  min-height: 360px;
+}
+
+.calendar-grid.view-week .event-card {
+  padding: 6px 10px 8px 12px;
+}
+
+.calendar-grid.view-week .event-title {
+  font-size: 1.3rem;
+}
+
+.calendar-grid.view-week .event-details {
+  font-size: 1.05rem;
+}
+
+.calendar-grid.view-week .event-status-indicator {
+  font-size: 0.9rem;
+}
+
+/* ==================== DAY VIEW ==================== */
+.calendar-grid.view-day {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto;
+  gap: 0;
+}
+
+.day-view-container {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 32px;
+  background: var(--bg-cell);
+  min-height: 400px;
+}
+
+.day-view-header {
+  font-family: var(--font-handwritten);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--border-grid);
+}
+
+.day-view-empty {
+  font-family: var(--font-handwritten);
+  font-size: 1.3rem;
+  color: var(--text-muted);
+  padding: 24px 0;
+  font-style: italic;
+}
+
+.day-view-event {
+  display: flex;
+  gap: 16px;
+  padding: 14px 16px;
+  border-left: 5px solid var(--accent-blue);
+  margin-bottom: 10px;
+  background: var(--bg-board);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.day-view-event:hover {
+  background: var(--bg-cell-hover);
+}
+
+.day-view-event-content {
+  flex: 1;
+}
+
+.day-view-event .event-title {
+  font-size: 1.5rem;
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.day-view-event .event-details {
+  font-size: 1.15rem;
+  margin-top: 4px;
+}
+
+.day-view-event .event-status-indicator {
+  font-size: 1rem;
+  margin-top: 6px;
+}
+
+.day-view-event .backup-stock-badge {
+  font-size: 0.65rem;
+  margin-top: 6px;
+}
+
+.day-view-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-top: 8px;
+  font-family: var(--font-handwritten);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--accent-blue);
+  background: transparent;
+  border: 2px dashed var(--border-grid);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.day-view-add-btn:hover {
+  background: rgba(43, 108, 176, 0.06);
+  border-color: var(--accent-blue);
+}
+
 /* Header Right — Legend + Manage */
 .header-right {
   display: flex;

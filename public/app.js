@@ -79,6 +79,9 @@
   // ==================== STATE ====================
   let currentMonth = new Date().getMonth();   // 0-11
   let currentYear = new Date().getFullYear();
+  let currentView = 'month';                 // 'month' | 'week' | 'day'
+  let currentWeekStart = null;               // Date object: Monday of current week
+  let currentDay = null;                     // Date object: current day in day view
   let events = [];
   let categories = [];
   let selectedDate = null;   // 'YYYY-MM-DD'
@@ -159,14 +162,31 @@
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
   }
 
+  /**
+   * Convert a Date object to YYYY-MM-DD string.
+   */
+  function dateToStr(d) {
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  /**
+   * Get the Monday of the week containing the given date.
+   */
+  function getMonday(d) {
+    const date = new Date(d);
+    const day = date.getDay();
+    const diff = (day === 0 ? -6 : 1) - day;
+    date.setDate(date.getDate() + diff);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+
   // ==================== CALENDAR ENGINE ====================
 
   /**
    * Build and render the entire calendar grid for the current month/year.
    */
   function renderCalendar() {
-    // Clear existing cells
-    $calendarGrid.innerHTML = '';
 
     const year = currentYear;
     const month = currentMonth; // 0-indexed
@@ -258,36 +278,7 @@
 
       // ---- Drag-and-drop: make day cells valid drop targets ----
       cell.dataset.date = dateStr;
-
-      cell.addEventListener('dragover', function (e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-      });
-
-      cell.addEventListener('dragenter', function (e) {
-        e.preventDefault();
-        if (draggedEventId && !isOtherMonth) {
-          cell.classList.add('drag-over');
-        }
-      });
-
-      cell.addEventListener('dragleave', function (e) {
-        // Only remove highlight when actually leaving the cell (not entering a child)
-        if (!cell.contains(e.relatedTarget)) {
-          cell.classList.remove('drag-over');
-        }
-      });
-
-      cell.addEventListener('drop', function (e) {
-        e.preventDefault();
-        cell.classList.remove('drag-over');
-
-        const eventId = e.dataTransfer.getData('text/plain');
-        if (!eventId || isOtherMonth) return;
-
-        const targetDate = cell.dataset.date;
-        moveEventToDate(eventId, targetDate);
-      });
+      addDropHandlers(cell, isOtherMonth);
 
       $calendarGrid.appendChild(cell);
     }
@@ -382,7 +373,202 @@
     });
   }
 
+  // ==================== WEEK VIEW ====================
+
+  /**
+   * Render a single week (Mon–Sun) with the same cell structure as month view.
+   */
+  function renderWeekView() {
+    var today = todayStr();
+
+    for (var i = 0; i < 7; i++) {
+      var d = new Date(currentWeekStart);
+      d.setDate(d.getDate() + i);
+      var dateStr = dateToStr(d);
+
+      var cell = document.createElement('div');
+      cell.classList.add('day-cell');
+
+      // Weekend
+      if (i === 5 || i === 6) cell.classList.add('weekend');
+      // Today
+      if (dateStr === today) cell.classList.add('today');
+
+      // Day number
+      var dayNumEl = document.createElement('div');
+      dayNumEl.classList.add('day-number');
+      dayNumEl.textContent = d.getDate();
+      cell.appendChild(dayNumEl);
+
+      // Events container
+      var eventContainer = document.createElement('div');
+      eventContainer.classList.add('event-container');
+      cell.appendChild(eventContainer);
+      renderEventsInCell(eventContainer, dateStr);
+
+      // Add hint
+      var hint = document.createElement('div');
+      hint.classList.add('add-event-hint');
+      hint.textContent = '+';
+      cell.appendChild(hint);
+
+      // Click to add event
+      (function (ds) {
+        cell.addEventListener('click', function () {
+          openEventModal(ds);
+        });
+      })(dateStr);
+
+      // Drag-drop target handlers (same as month view)
+      cell.dataset.date = dateStr;
+      addDropHandlers(cell, false);
+
+      $calendarGrid.appendChild(cell);
+    }
+  }
+
+  // ==================== DAY VIEW ====================
+
+  /**
+   * Render a single day with full event details and an add button.
+   */
+  function renderDayView() {
+    var dateStr = dateToStr(currentDay);
+    var container = document.createElement('div');
+    container.classList.add('day-view-container');
+
+    // Header
+    var header = document.createElement('div');
+    header.classList.add('day-view-header');
+    header.textContent = formatDateNice(dateStr);
+    container.appendChild(header);
+
+    // Events for this day
+    var dayEvents = events.filter(function (ev) { return ev.date === dateStr; });
+
+    if (dayEvents.length === 0) {
+      var emptyMsg = document.createElement('div');
+      emptyMsg.classList.add('day-view-empty');
+      emptyMsg.textContent = 'No events scheduled';
+      container.appendChild(emptyMsg);
+    } else {
+      dayEvents.forEach(function (ev) {
+        var row = document.createElement('div');
+        row.classList.add('day-view-event', 'event-card');
+        row.dataset.eventId = ev.id;
+        row.dataset.eventDate = dateStr;
+
+        var catColor = ev.categoryColor || 'var(--accent-blue)';
+        row.style.borderLeftColor = catColor;
+
+        var content = document.createElement('div');
+        content.classList.add('day-view-event-content');
+
+        // Title
+        var titleEl = document.createElement('div');
+        titleEl.classList.add('event-title');
+        titleEl.textContent = ev.title;
+        content.appendChild(titleEl);
+
+        // Category name
+        if (ev.categoryName) {
+          var catEl = document.createElement('div');
+          catEl.style.fontFamily = 'var(--font-handwritten)';
+          catEl.style.fontSize = '0.95rem';
+          catEl.style.color = catColor;
+          catEl.style.fontWeight = '600';
+          catEl.style.marginTop = '2px';
+          catEl.textContent = ev.categoryName;
+          content.appendChild(catEl);
+        }
+
+        // Details
+        if (ev.details && ev.details.trim()) {
+          var detailsEl = document.createElement('div');
+          detailsEl.classList.add('event-details');
+          detailsEl.textContent = ev.details;
+          content.appendChild(detailsEl);
+        }
+
+        // Status
+        if (ev.status && ev.status !== 'pending') {
+          var statusEl = document.createElement('div');
+          statusEl.classList.add('event-status-indicator', 'status-' + ev.status);
+          if (ev.status === 'waiting') {
+            statusEl.textContent = '\u23f3 Waiting for Hardware';
+          } else if (ev.status === 'received') {
+            var dateText = ev.statusDate ? ' (' + ev.statusDate + ')' : '';
+            statusEl.textContent = '\u2713 Hardware Received' + dateText;
+          }
+          content.appendChild(statusEl);
+        }
+
+        // Backup Stock badge
+        if (ev.isBackupStock) {
+          var badge = document.createElement('div');
+          badge.classList.add('backup-stock-badge');
+          badge.textContent = 'Backup Stock';
+          content.appendChild(badge);
+        }
+
+        row.appendChild(content);
+
+        // Click to edit
+        row.addEventListener('click', function (e) {
+          e.stopPropagation();
+          openEventModal(dateStr, ev);
+        });
+
+        container.appendChild(row);
+      });
+    }
+
+    // Add event button
+    var addBtn = document.createElement('button');
+    addBtn.classList.add('day-view-add-btn');
+    addBtn.textContent = '+ Add Event';
+    addBtn.addEventListener('click', function () {
+      openEventModal(dateStr);
+    });
+    container.appendChild(addBtn);
+
+    $calendarGrid.appendChild(container);
+  }
+
   // ==================== DRAG-AND-DROP ====================
+
+  /**
+   * Attach drag-drop target listeners to a day cell.
+   * @param {HTMLElement} cell - the day cell element (must have dataset.date set)
+   * @param {boolean} isOtherMonth - if true, drops are disabled
+   */
+  function addDropHandlers(cell, isOtherMonth) {
+    cell.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+
+    cell.addEventListener('dragenter', function (e) {
+      e.preventDefault();
+      if (draggedEventId && !isOtherMonth) {
+        cell.classList.add('drag-over');
+      }
+    });
+
+    cell.addEventListener('dragleave', function (e) {
+      if (!cell.contains(e.relatedTarget)) {
+        cell.classList.remove('drag-over');
+      }
+    });
+
+    cell.addEventListener('drop', function (e) {
+      e.preventDefault();
+      cell.classList.remove('drag-over');
+      var eventId = e.dataTransfer.getData('text/plain');
+      if (!eventId || isOtherMonth) return;
+      moveEventToDate(eventId, cell.dataset.date);
+    });
+  }
 
   /**
    * Move an event to a new date by updating it via the API.
@@ -410,20 +596,41 @@
 
   // ==================== NAVIGATION ====================
 
-  function goToPrevMonth() {
-    currentMonth--;
-    if (currentMonth < 0) {
-      currentMonth = 11;
-      currentYear--;
+  function goToPrev() {
+    if (currentView === 'month') {
+      currentMonth--;
+      if (currentMonth < 0) {
+        currentMonth = 11;
+        currentYear--;
+      }
+    } else if (currentView === 'week') {
+      currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+      // Sync month/year to week start
+      currentMonth = currentWeekStart.getMonth();
+      currentYear = currentWeekStart.getFullYear();
+    } else {
+      currentDay.setDate(currentDay.getDate() - 1);
+      currentMonth = currentDay.getMonth();
+      currentYear = currentDay.getFullYear();
     }
     loadAndRender();
   }
 
-  function goToNextMonth() {
-    currentMonth++;
-    if (currentMonth > 11) {
-      currentMonth = 0;
-      currentYear++;
+  function goToNext() {
+    if (currentView === 'month') {
+      currentMonth++;
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+      }
+    } else if (currentView === 'week') {
+      currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+      currentMonth = currentWeekStart.getMonth();
+      currentYear = currentWeekStart.getFullYear();
+    } else {
+      currentDay.setDate(currentDay.getDate() + 1);
+      currentMonth = currentDay.getMonth();
+      currentYear = currentDay.getFullYear();
     }
     loadAndRender();
   }
@@ -432,11 +639,53 @@
     const now = new Date();
     currentMonth = now.getMonth();
     currentYear = now.getFullYear();
+    currentWeekStart = getMonday(now);
+    currentDay = new Date(now);
+    currentDay.setHours(0, 0, 0, 0);
     loadAndRender();
   }
 
-  function updateMonthDisplay() {
-    $monthYearDisplay.textContent = MONTH_NAMES[currentMonth] + ' ' + currentYear;
+  function updateDisplayLabel() {
+    if (currentView === 'month') {
+      $monthYearDisplay.textContent = MONTH_NAMES[currentMonth] + ' ' + currentYear;
+    } else if (currentView === 'week') {
+      const weekEnd = new Date(currentWeekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      var startStr = MONTH_NAMES[currentWeekStart.getMonth()] + ' ' + currentWeekStart.getDate();
+      var endStr = MONTH_NAMES[weekEnd.getMonth()] + ' ' + weekEnd.getDate() + ', ' + weekEnd.getFullYear();
+      $monthYearDisplay.textContent = startStr + ' – ' + endStr;
+    } else {
+      $monthYearDisplay.textContent = formatDateNice(dateToStr(currentDay));
+    }
+  }
+
+  /**
+   * Switch the active view and re-render.
+   */
+  function switchView(view) {
+    if (view === currentView) return;
+    currentView = view;
+
+    // Update toggle button active states
+    document.querySelectorAll('.view-btn').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.view === view);
+    });
+
+    // Initialize week/day anchors if needed
+    var refDate = new Date(currentYear, currentMonth, currentDay ? currentDay.getDate() : new Date().getDate());
+    if (view === 'week' && !currentWeekStart) {
+      currentWeekStart = getMonday(refDate);
+    }
+    if (view === 'day' && !currentDay) {
+      currentDay = new Date();
+      currentDay.setHours(0, 0, 0, 0);
+    }
+
+    // Show/hide day headers (not needed in day view)
+    var $dayHeaders = document.getElementById('day-headers');
+    $dayHeaders.style.display = (view === 'day') ? 'none' : '';
+
+    loadAndRender();
   }
 
   // ==================== EVENT MODAL ====================
@@ -813,17 +1062,42 @@
    * Load events for the current month and re-render the calendar.
    */
   async function loadAndRender() {
-    updateMonthDisplay();
+    updateDisplayLabel();
 
     try {
       // API expects 1-12 for month
       events = await API.getEvents(currentMonth + 1, currentYear);
+
+      // For week view, we may need events from adjacent months
+      if (currentView === 'week') {
+        var weekEnd = new Date(currentWeekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        if (weekEnd.getMonth() !== currentWeekStart.getMonth()) {
+          var extra = await API.getEvents(weekEnd.getMonth() + 1, weekEnd.getFullYear());
+          // Merge without duplicates
+          var existingIds = new Set(events.map(function (e) { return e.id; }));
+          extra.forEach(function (e) { if (!existingIds.has(e.id)) events.push(e); });
+        }
+      }
     } catch (err) {
       console.error('Error loading events:', err);
       events = [];
     }
 
-    renderCalendar();
+    // Clear grid and apply correct view class
+    $calendarGrid.innerHTML = '';
+    $calendarGrid.classList.remove('view-week', 'view-day');
+
+    if (currentView === 'week') {
+      $calendarGrid.classList.add('view-week');
+      renderWeekView();
+    } else if (currentView === 'day') {
+      $calendarGrid.classList.add('view-day');
+      renderDayView();
+    } else {
+      renderCalendar();
+    }
+
     applyFilters();
   }
 
@@ -883,9 +1157,16 @@
     // ==================== EVENT LISTENERS ====================
 
     // Navigation
-    $prevMonthBtn.addEventListener('click', goToPrevMonth);
-    $nextMonthBtn.addEventListener('click', goToNextMonth);
+    $prevMonthBtn.addEventListener('click', goToPrev);
+    $nextMonthBtn.addEventListener('click', goToNext);
     $todayBtn.addEventListener('click', goToToday);
+
+    // View toggle
+    document.querySelectorAll('.view-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        switchView(btn.dataset.view);
+      });
+    });
 
     // Event modal buttons
     $saveEventBtn.addEventListener('click', saveEvent);
@@ -956,9 +1237,9 @@
 
       if (!isInput && !modalOpen) {
         if (e.key === 'ArrowLeft') {
-          goToPrevMonth();
+          goToPrev();
         } else if (e.key === 'ArrowRight') {
-          goToNextMonth();
+          goToNext();
         }
       }
     });
