@@ -66,6 +66,29 @@
       if (!res.ok) throw new Error('Failed to delete category');
       return res.json();
     },
+
+    // Items
+    async getItems() {
+      const res = await fetch('/api/items');
+      if (!res.ok) throw new Error('Failed to fetch items');
+      return res.json();
+    },
+
+    async createItem(data) {
+      const res = await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error('Failed to create item');
+      return res.json();
+    },
+
+    async deleteItem(id) {
+      const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to delete item');
+      return res.json();
+    },
   };
 
   // ==================== MONTH NAMES ====================
@@ -84,6 +107,8 @@
   let currentDay = null;                     // Date object: current day in day view
   let events = [];
   let categories = [];
+  let presetItems = [];      // preset equipment items library
+  let modalItems = [];       // temp items assigned in the modal [{itemId, itemName, quantity}]
   let selectedDate = null;   // 'YYYY-MM-DD'
   let editingEvent = null;   // event object or null
   let draggedEventId = null; // ID of the event being dragged
@@ -128,6 +153,20 @@
   let $clearFiltersBtn;
   let $filterCount;
   let $filterBackupStock;
+
+  // Item picker (in event modal)
+  let $itemPickerSelect;
+  let $itemPickerQty;
+  let $itemPickerAddBtn;
+  let $assignedItemsList;
+
+  // Items modal
+  let $itemsModal;
+  let $itemsList;
+  let $newItemName;
+  let $addItemBtn;
+  let $closeItemsModalBtn;
+  let $manageItemsBtn;
 
   // ==================== UTILITY ====================
 
@@ -335,7 +374,17 @@
       titleEl.textContent = ev.title;
       card.appendChild(titleEl);
 
-      // Details (if present)
+      // Items (if any)
+      if (ev.items && ev.items.length > 0) {
+        const itemsEl = document.createElement('div');
+        itemsEl.classList.add('event-items');
+        itemsEl.textContent = ev.items.map(function (it) {
+          return it.quantity + '× ' + it.itemName;
+        }).join(', ');
+        card.appendChild(itemsEl);
+      }
+
+      // Details / notes (if present)
       if (ev.details && ev.details.trim()) {
         const detailsEl = document.createElement('div');
         detailsEl.classList.add('event-details');
@@ -481,6 +530,16 @@
           catEl.style.marginTop = '2px';
           catEl.textContent = ev.categoryName;
           content.appendChild(catEl);
+        }
+
+        // Items
+        if (ev.items && ev.items.length > 0) {
+          var itemsEl = document.createElement('div');
+          itemsEl.classList.add('event-items');
+          itemsEl.textContent = ev.items.map(function (it) {
+            return it.quantity + '× ' + it.itemName;
+          }).join(', ');
+          content.appendChild(itemsEl);
         }
 
         // Details
@@ -708,6 +767,7 @@
 
     // Populate category dropdown (always refresh)
     populateCategoryDropdown();
+    populateItemPickerDropdown();
 
     if (editingEvent) {
       // Populate fields from event
@@ -717,6 +777,10 @@
       $eventStatus.value = editingEvent.status || 'pending';
       $eventStatusDate.value = editingEvent.statusDate || '';
       $eventBackupStock.checked = !!editingEvent.isBackupStock;
+      // Load existing items
+      modalItems = (editingEvent.items || []).map(function (it) {
+        return { itemId: it.itemId, itemName: it.itemName, quantity: it.quantity };
+      });
       $deleteEventBtn.style.display = 'inline-flex';
     } else {
       // Clear fields for new event
@@ -727,8 +791,11 @@
       $eventStatus.value = 'pending';
       $eventStatusDate.value = '';
       $eventBackupStock.checked = false;
+      modalItems = [];
       $deleteEventBtn.style.display = 'none';
     }
+
+    renderAssignedItems();
 
     // Show/hide status date based on status
     toggleStatusDateVisibility();
@@ -785,6 +852,9 @@
       status: status,
       statusDate: statusDate,
       isBackupStock: isBackupStock,
+      items: modalItems.map(function (it) {
+        return { itemId: it.itemId, quantity: it.quantity };
+      }),
     };
 
     try {
@@ -960,6 +1030,156 @@
       opt.textContent = cat.name;
       $eventCategory.appendChild(opt);
     });
+  }
+
+  // ==================== ITEM PICKER ====================
+
+  /**
+   * Populate the item picker dropdown with preset items.
+   */
+  function populateItemPickerDropdown() {
+    $itemPickerSelect.innerHTML = '<option value="">Select item...</option>';
+    presetItems.forEach(function (item) {
+      var opt = document.createElement('option');
+      opt.value = item.id;
+      opt.textContent = item.name;
+      $itemPickerSelect.appendChild(opt);
+    });
+  }
+
+  /**
+   * Add the selected item to the modal's assigned items list.
+   */
+  function addItemToModal() {
+    var itemId = $itemPickerSelect.value;
+    var qty = parseInt($itemPickerQty.value, 10);
+    if (!itemId || !qty || qty < 1) return;
+
+    // Check if already assigned — if so, update quantity
+    var existing = modalItems.find(function (it) { return it.itemId === itemId; });
+    if (existing) {
+      existing.quantity += qty;
+    } else {
+      var item = presetItems.find(function (it) { return it.id === itemId; });
+      if (!item) return;
+      modalItems.push({ itemId: item.id, itemName: item.name, quantity: qty });
+    }
+
+    $itemPickerSelect.value = '';
+    $itemPickerQty.value = '1';
+    renderAssignedItems();
+  }
+
+  /**
+   * Remove an item from the modal's assigned items list.
+   */
+  function removeItemFromModal(itemId) {
+    modalItems = modalItems.filter(function (it) { return it.itemId !== itemId; });
+    renderAssignedItems();
+  }
+
+  /**
+   * Render the assigned items list in the event modal.
+   */
+  function renderAssignedItems() {
+    $assignedItemsList.innerHTML = '';
+    if (modalItems.length === 0) return;
+
+    modalItems.forEach(function (it) {
+      var row = document.createElement('div');
+      row.classList.add('assigned-item-row');
+
+      var qtyEl = document.createElement('span');
+      qtyEl.classList.add('assigned-item-qty');
+      qtyEl.textContent = it.quantity + '\u00d7';
+
+      var nameEl = document.createElement('span');
+      nameEl.classList.add('assigned-item-name');
+      nameEl.textContent = it.itemName;
+
+      var removeBtn = document.createElement('button');
+      removeBtn.classList.add('assigned-item-remove');
+      removeBtn.textContent = '\u00d7';
+      removeBtn.title = 'Remove';
+      removeBtn.addEventListener('click', function () {
+        removeItemFromModal(it.itemId);
+      });
+
+      row.appendChild(qtyEl);
+      row.appendChild(nameEl);
+      row.appendChild(removeBtn);
+      $assignedItemsList.appendChild(row);
+    });
+  }
+
+  // ==================== ITEMS MODAL ====================
+
+  function openItemsModal() {
+    renderItemsList();
+    $itemsModal.classList.add('active');
+  }
+
+  function closeItemsModal() {
+    $itemsModal.classList.remove('active');
+  }
+
+  function renderItemsList() {
+    $itemsList.innerHTML = '';
+
+    if (presetItems.length === 0) {
+      $itemsList.innerHTML = '<div style="padding:12px;color:var(--text-muted);font-style:italic;">No items yet. Add one below.</div>';
+      return;
+    }
+
+    presetItems.forEach(function (item) {
+      var row = document.createElement('div');
+      row.classList.add('category-item');
+
+      var nameEl = document.createElement('span');
+      nameEl.classList.add('category-item-name');
+      nameEl.textContent = item.name;
+
+      var deleteBtn = document.createElement('button');
+      deleteBtn.classList.add('btn', 'btn-ghost', 'btn-sm');
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', function () {
+        handleDeleteItem(item.id);
+      });
+
+      row.appendChild(nameEl);
+      row.appendChild(deleteBtn);
+      $itemsList.appendChild(row);
+    });
+  }
+
+  async function addItem() {
+    var name = $newItemName.value.trim();
+    if (!name) return;
+
+    try {
+      await API.createItem({ name: name });
+      presetItems = await API.getItems();
+      renderItemsList();
+      populateItemPickerDropdown();
+      $newItemName.value = '';
+    } catch (err) {
+      console.error('Error creating item:', err);
+    }
+  }
+
+  async function handleDeleteItem(id) {
+    var confirmed = confirm('Delete this item? It will be removed from all events.');
+    if (!confirmed) return;
+
+    try {
+      await API.deleteItem(id);
+      presetItems = await API.getItems();
+      renderItemsList();
+      populateItemPickerDropdown();
+      await loadAndRender();
+    } catch (err) {
+      console.error('Error deleting item:', err);
+    }
   }
 
   // ==================== FILTERS ====================
@@ -1153,6 +1373,20 @@
     $filterCount = document.getElementById('filter-count');
     $filterBackupStock = document.getElementById('filter-backup-stock');
 
+    // Item picker (in event modal)
+    $itemPickerSelect = document.getElementById('item-picker-select');
+    $itemPickerQty = document.getElementById('item-picker-qty');
+    $itemPickerAddBtn = document.getElementById('item-picker-add-btn');
+    $assignedItemsList = document.getElementById('assigned-items-list');
+
+    // Items modal
+    $itemsModal = document.getElementById('items-modal');
+    $itemsList = document.getElementById('items-list');
+    $newItemName = document.getElementById('new-item-name');
+    $addItemBtn = document.getElementById('add-item-btn');
+    $closeItemsModalBtn = document.getElementById('close-items-modal-btn');
+    $manageItemsBtn = document.getElementById('manage-items-btn');
+
     // Load categories
     try {
       categories = await API.getCategories();
@@ -1162,6 +1396,14 @@
     }
     renderLegend();
     populateFilterCategoryDropdown();
+
+    // Load preset items
+    try {
+      presetItems = await API.getItems();
+    } catch (err) {
+      console.error('Error loading items:', err);
+      presetItems = [];
+    }
 
     // ==================== EVENT LISTENERS ====================
 
@@ -1190,6 +1432,14 @@
     $closeCategoryModalBtn.addEventListener('click', closeCategoryModal);
     $addCategoryBtn.addEventListener('click', addCategory);
 
+    // Item picker
+    $itemPickerAddBtn.addEventListener('click', addItemToModal);
+
+    // Items modal buttons
+    $manageItemsBtn.addEventListener('click', openItemsModal);
+    $closeItemsModalBtn.addEventListener('click', closeItemsModal);
+    $addItemBtn.addEventListener('click', addItem);
+
     // Filter controls
     $filterCategory.addEventListener('change', applyFilters);
     $filterStatus.addEventListener('change', applyFilters);
@@ -1203,6 +1453,14 @@
       if (e.key === 'Enter') {
         e.preventDefault();
         addCategory();
+      }
+    });
+
+    // Enter key in new item name input → add item
+    $newItemName.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addItem();
       }
     });
 
@@ -1227,6 +1485,12 @@
       }
     });
 
+    $itemsModal.addEventListener('click', function (e) {
+      if (e.target === $itemsModal) {
+        closeItemsModal();
+      }
+    });
+
     // Escape key to close modals
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
@@ -1234,6 +1498,8 @@
           closeEventModal();
         } else if ($categoryModal.classList.contains('active')) {
           closeCategoryModal();
+        } else if ($itemsModal.classList.contains('active')) {
+          closeItemsModal();
         }
       }
     });

@@ -12,7 +12,7 @@ const router = express.Router();
 // Helper: fetch a single event with its category info joined
 // ============================================================================
 function getEventWithCategory(eventId) {
-  return db.prepare(`
+  const event = db.prepare(`
     SELECT
       e.id, e.date, e.title, e.details,
       e.category_id    AS categoryId,
@@ -27,6 +27,43 @@ function getEventWithCategory(eventId) {
     LEFT JOIN categories c ON e.category_id = c.id
     WHERE e.id = ?
   `).get(eventId);
+
+  if (event) {
+    event.items = getEventItems(eventId);
+  }
+  return event;
+}
+
+// ============================================================================
+// Helper: get items assigned to an event
+// ============================================================================
+function getEventItems(eventId) {
+  return db.prepare(`
+    SELECT ei.item_id AS itemId, i.name AS itemName, ei.quantity
+    FROM event_items ei
+    JOIN items i ON ei.item_id = i.id
+    WHERE ei.event_id = ?
+    ORDER BY i.name ASC
+  `).all(eventId);
+}
+
+// ============================================================================
+// Helper: save items for an event (delete-and-reinsert)
+// ============================================================================
+function saveEventItems(eventId, items) {
+  if (!items || !Array.isArray(items)) return;
+
+  db.prepare('DELETE FROM event_items WHERE event_id = ?').run(eventId);
+
+  const insert = db.prepare(
+    'INSERT INTO event_items (event_id, item_id, quantity) VALUES (?, ?, ?)'
+  );
+
+  for (const item of items) {
+    if (item.itemId && item.quantity > 0) {
+      insert.run(eventId, item.itemId, item.quantity);
+    }
+  }
 }
 
 // ============================================================================
@@ -128,6 +165,11 @@ router.get('/', (req, res) => {
       ORDER BY e.date ASC, e.created_at ASC
     `).all(firstDay, lastDay);
 
+    // Attach items to each event
+    for (const ev of events) {
+      ev.items = getEventItems(ev.id);
+    }
+
     res.json(events);
   } catch (err) {
     console.error('GET /api/events error:', err);
@@ -142,7 +184,7 @@ router.get('/', (req, res) => {
 // ============================================================================
 router.post('/', (req, res) => {
   try {
-    const { date, title, details, categoryId, status, statusDate, isBackupStock } = req.body;
+    const { date, title, details, categoryId, status, statusDate, isBackupStock, items } = req.body;
 
     if (!date || !title) {
       return res.status(400).json({ error: 'date and title are required' });
@@ -155,6 +197,9 @@ router.post('/', (req, res) => {
       INSERT INTO events (id, date, title, details, category_id, status, status_date, is_backup_stock, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(id, date, title, details || '', categoryId || null, status || 'pending', statusDate || null, isBackupStock ? 1 : 0, now, now);
+
+    // Save assigned items
+    saveEventItems(id, items);
 
     const event = getEventWithCategory(id);
     res.status(201).json(event);
@@ -179,7 +224,7 @@ router.put('/:id', (req, res) => {
       return res.status(404).json({ error: 'Event not found' });
     }
 
-    const { date, title, details, categoryId, status, statusDate, isBackupStock } = req.body;
+    const { date, title, details, categoryId, status, statusDate, isBackupStock, items } = req.body;
     const now = new Date().toISOString();
 
     // Build dynamic SET clause — only update provided fields
@@ -200,6 +245,11 @@ router.put('/:id', (req, res) => {
     values.push(id);
 
     db.prepare(`UPDATE events SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+
+    // Save assigned items if provided
+    if (items !== undefined) {
+      saveEventItems(id, items);
+    }
 
     const event = getEventWithCategory(id);
     res.json(event);

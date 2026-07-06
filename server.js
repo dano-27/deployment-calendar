@@ -12,6 +12,7 @@ require('./db');
 // Import route modules
 const eventsRouter = require('./routes/events');
 const categoriesRouter = require('./routes/categories');
+const itemsRouter = require('./routes/items');
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ============================================================================
 app.use('/api/events', eventsRouter);
 app.use('/api/categories', categoriesRouter);
+app.use('/api/items', itemsRouter);
 
 // ============================================================================
 // Catch-all: serve the frontend SPA for any non-API GET request
