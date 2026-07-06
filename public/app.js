@@ -351,7 +351,9 @@
     dayEvents.forEach(function (ev) {
       if (ev.items && ev.items.length > 0) {
         ev.items.forEach(function (it) {
-          totalDevices += it.quantity;
+          // Square Register counts as 2 devices per unit
+          var multiplier = (it.itemName === 'Square Register') ? 2 : 1;
+          totalDevices += it.quantity * multiplier;
         });
       }
     });
